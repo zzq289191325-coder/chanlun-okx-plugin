@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chanlun-okx-research"
+version = "1.1.0"
+description = "Local-only OKX public market history database for Chanlun research"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+chanlun-research = "chanlun_research.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

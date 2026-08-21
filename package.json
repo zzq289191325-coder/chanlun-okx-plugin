@@ -8,7 +8,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --dir apps/extension typecheck",
     "test": "vitest run packages/core/test && pnpm --dir apps/extension test",
     "test:no-lookahead": "vitest run packages/core/test/noLookahead.test.ts",
-    "build": "tsc -p tsconfig.build.json && pnpm --dir apps/extension build"
+    "build": "tsc -p tsconfig.build.json && pnpm --dir apps/extension build",
+    "research:test": "node apps/research-service/run-python.mjs -m unittest discover -s apps/research-service/tests -v",
+    "research:init": "node apps/research-service/run-python.mjs apps/research-service/research.py init",
+    "research:sync": "node apps/research-service/run-python.mjs apps/research-service/research.py sync --config apps/research-service/config/example_sync_tasks.json",
+    "research:audit": "node apps/research-service/run-python.mjs apps/research-service/research.py audit"
   },
   "devDependencies": {
     "@types/node": "24.13.3",

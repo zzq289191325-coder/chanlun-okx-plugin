@@ -46,7 +46,7 @@ OKX Chanlun Visualizer Plugin 是一个 Chrome Manifest V3 扩展，用于在 OK
 ```text
 chanlun-okx-plugin-v1/
 ├── apps/
-│   └── extension/
+│   ├── extension/
 │       ├── public/              # 插件图标和安装说明
 │       ├── src/
 │       │   ├── app/             # 面板、工具栏和图表 UI
@@ -60,6 +60,7 @@ chanlun-okx-plugin-v1/
 │       │   └── utils/           # 通用工具
 │       ├── manifest.json
 │       └── vite.config.ts
+│   └── research-service/        # Python 本地历史数据库、同步、审计和备份
 ├── packages/
 │   ├── contracts/               # K 线和结构化信号类型
 │   └── core/                    # 缠论、多周期、市场状态和风险分析核心
@@ -71,16 +72,26 @@ chanlun-okx-plugin-v1/
 
 ## 本地开发
 
-要求：Node.js 24 或更高版本、pnpm 11。
+要求：Node.js 24 或更高版本、pnpm 11、Python 3.11 或更高版本。
 
 ```text
 pnpm install
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm research:test
+pnpm research:init
+pnpm research:sync
+pnpm research:audit
 ```
 
 其中测试包含固定 OKX 公共历史行情样本的结构回归，以及 15M/30M 截止时间、未来数据扰动、未收盘 K 线和确认时间约束检查。测试运行不访问网络。
+
+## 本地历史行情数据库
+
+V1.1 使用独立 Python 研究服务和 SQLite 主库管理历史数据，不把大型行情放入 `chrome.storage`。默认数据库为 `data/chanlun_research.sqlite3`；数据库包含版本迁移、复合唯一键 UPSERT、断点游标、数据质量审计以及 SQLite 一致性备份。Chrome 插件仍只负责展示，不直接管理数据库。
+
+详细设计和命令参见：`apps/research-service/DATABASE_DESIGN.md` 与 `apps/research-service/README.md`。
 
 构建完成后，Chrome 本地加载目录为：
 
@@ -104,6 +115,8 @@ apps/extension/dist
 
 - `https://www.okx.com/api/v5/market/candles`
 - OKX 公共行情 WebSocket
+
+本地研究服务只访问 `https://www.okx.com/api/v5/market/history-candles`，不发送认证信息。
 
 Chrome 权限用于本地设置、侧边栏、当前页面通信及注入 TradingView 展示桥接，不包含账户交易权限。
 

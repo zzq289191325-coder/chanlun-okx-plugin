@@ -1,0 +1,10 @@
+{
+  "source": "okx_public_history",
+  "symbols": [
+    "GOOGL-USDT-SWAP",
+    "INTC-USDT-SWAP",
+    "MU-USDT-SWAP",
+    "BTC-USDT-SWAP"
+  ],
+  "timeframes": ["1D", "4H", "1H", "30m", "15m"]
+}
