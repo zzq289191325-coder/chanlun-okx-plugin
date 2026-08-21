@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
+    "types": ["chrome", "node", "vitest/globals"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@intelligence/core": ["../../packages/core/src/index.ts"],
+      "@intelligence/contracts": ["../../packages/contracts/src/index.ts"]
+    }
+  },
+  "include": ["src", "../../packages/core/src", "../../packages/contracts/src", "vite.config.ts", "vitest.config.ts", "eslint.config.js"]
+}
