@@ -1,7 +1,7 @@
 {
   "name": "chanlun-okx-plugin",
-  "version": "1.0.0",
-  "description": "OKX Chanlun Visualizer Plugin V1.0 First Generation",
+  "version": "1.1.0",
+  "description": "OKX Chanlun Visualizer Plugin V1.1 multi-timeframe research edition",
   "private": true,
   "type": "module",
   "scripts": {

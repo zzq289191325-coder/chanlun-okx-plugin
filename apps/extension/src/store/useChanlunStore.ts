@@ -27,6 +27,8 @@ export interface ChanlunSettings {
   collapsed: boolean;
   acknowledgedDisclaimer: boolean;
   realtime: boolean;
+  localNewsText: string;
+  localNewsRecordedAt: number;
   chartLayers: ChartLayerVisibility;
   panelPosition: {
     x: number;
@@ -73,7 +75,7 @@ const DEFAULT_CHART_LAYERS: ChartLayerVisibility = {
 const DEFAULT_WATCHLIST = ["GOOGL-USDT-SWAP", "INTC-USDT-SWAP", "MU-USDT-SWAP"];
 
 const defaultSettings: ChanlunSettings = {
-  schemaVersion: 11,
+  schemaVersion: 12,
   instId: "",
   symbolMode: "page",
   watchlist: DEFAULT_WATCHLIST,
@@ -82,6 +84,8 @@ const defaultSettings: ChanlunSettings = {
   collapsed: false,
   acknowledgedDisclaimer: false,
   realtime: true,
+  localNewsText: "",
+  localNewsRecordedAt: 0,
   chartLayers: DEFAULT_CHART_LAYERS,
   panelPosition: { x: 24, y: 88 },
 };
@@ -147,10 +151,15 @@ async function loadIntelligenceSafe(
   instId: string,
   currentInterval?: Interval,
   currentCandles?: Promise<Candle[]>,
+  localNewsText = "",
+  localNewsRecordedAt = 0,
 ) {
   try {
     intelligenceRequestAt = Date.now();
-    return await loadIntelligence(instId, currentInterval, currentCandles);
+    return await loadIntelligence(instId, currentInterval, currentCandles, {
+      text: localNewsText,
+      recordedAt: localNewsRecordedAt || Date.now(),
+    });
   } catch (error) {
     logger.warn("多周期分析暂时不可用", error);
     return null;
@@ -166,12 +175,17 @@ function updateIntelligenceForClosedCandle(
   instId: string,
   interval: Interval,
   candles: Candle[],
+  localNewsText: string,
+  localNewsRecordedAt: number,
 ): IntelligenceLoadResult | null {
   if (!current || !isIntelligenceTimeframe(interval)) return current;
   const nextCandles = { ...current.candles, [interval]: candles };
   return {
     candles: nextCandles,
-    analysis: buildIntelligenceResult(instId, nextCandles),
+    analysis: buildIntelligenceResult(instId, nextCandles, {
+      text: localNewsText,
+      recordedAt: localNewsRecordedAt || Date.now(),
+    }),
     loadedAt: Date.now(),
   };
 }
@@ -216,7 +230,7 @@ export const useChanlunStore = create<ChanlunState>((set, get) => ({
   },
 
   async loadInitialCandles() {
-    const { instId, interval, realtime } = get().settings;
+    const { instId, interval, realtime, localNewsText, localNewsRecordedAt } = get().settings;
     const requestSeq = (loadRequestSeq += 1);
     if (!instId) {
       set({ loadState: "error", error: "未识别交易对，请确认当前页面为 OKX 合约交易页。" });
@@ -229,12 +243,13 @@ export const useChanlunStore = create<ChanlunState>((set, get) => ({
       const candlesRequest = fetchOkxCandles(instId, interval, 300);
       const [candles, intelligence] = await Promise.all([
         candlesRequest,
-        loadIntelligenceSafe(instId, interval, candlesRequest),
+        loadIntelligenceSafe(instId, interval, candlesRequest, localNewsText, localNewsRecordedAt),
       ]);
       if (requestSeq !== loadRequestSeq) return;
-      const analysis = intelligence && isIntelligenceTimeframe(interval)
-        ? toLegacyAnalysis(intelligence.analysis.snapshots[interval])
-        : analyzeLegacy(candles);
+      const analysis =
+        intelligence && isIntelligenceTimeframe(interval)
+          ? toLegacyAnalysis(intelligence.analysis.snapshots[interval])
+          : analyzeLegacy(candles);
       set({
         candles,
         analysis,
@@ -261,7 +276,7 @@ export const useChanlunStore = create<ChanlunState>((set, get) => ({
       instId,
       interval,
       onStatus: (wsStatus, detail) => {
-        set({ wsStatus, error: wsStatus === "error" ? detail ?? "WebSocket 错误" : get().error });
+        set({ wsStatus, error: wsStatus === "error" ? (detail ?? "WebSocket 错误") : get().error });
       },
       onCandle: (candle) => get().upsertCandle(candle),
     });
@@ -275,9 +290,19 @@ export const useChanlunStore = create<ChanlunState>((set, get) => ({
 
   upsertCandle(candle) {
     const now = Date.now();
-    if (now - Math.max(get().intelligence?.loadedAt ?? 0, intelligenceRequestAt) > INTELLIGENCE_REFRESH_MS) {
+    if (
+      now - Math.max(get().intelligence?.loadedAt ?? 0, intelligenceRequestAt) >
+      INTELLIGENCE_REFRESH_MS
+    ) {
       const requestedInstId = get().settings.instId;
-      void loadIntelligenceSafe(requestedInstId).then((intelligence) => {
+      const { localNewsText, localNewsRecordedAt } = get().settings;
+      void loadIntelligenceSafe(
+        requestedInstId,
+        undefined,
+        undefined,
+        localNewsText,
+        localNewsRecordedAt,
+      ).then((intelligence) => {
         if (!intelligence || get().settings.instId !== requestedInstId) return;
         const interval = get().settings.interval;
         set({
@@ -298,15 +323,18 @@ export const useChanlunStore = create<ChanlunState>((set, get) => ({
           get().settings.instId,
           get().settings.interval,
           candles,
+          get().settings.localNewsText,
+          get().settings.localNewsRecordedAt,
         );
       } catch (error) {
         logger.warn("已收盘 K 线的结构更新失败", error);
       }
     }
     const interval = get().settings.interval;
-    const analysis = intelligence && isIntelligenceTimeframe(interval)
-      ? toLegacyAnalysis(intelligence.analysis.snapshots[interval])
-      : analyzeLegacy(candles);
+    const analysis =
+      intelligence && isIntelligenceTimeframe(interval)
+        ? toLegacyAnalysis(intelligence.analysis.snapshots[interval])
+        : analyzeLegacy(candles);
     set({ candles, analysis, intelligence, lastUpdated: now });
   },
 

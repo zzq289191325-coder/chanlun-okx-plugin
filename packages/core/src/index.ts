@@ -13,6 +13,8 @@ export * from "./market/candleCache.js";
 export * from "./market/candles.js";
 export * from "./market/multiTimeframeLoader.js";
 export * from "./multiTimeframe/engine.js";
+export * from "./multiTimeframe/nesting.js";
+export * from "./news/newsImpact.js";
 export * from "./okx/candles.js";
 export * from "./okx/publicMarketClient.js";
 export * from "./regime/marketRegime.js";

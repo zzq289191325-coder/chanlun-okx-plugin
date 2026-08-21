@@ -1,4 +1,4 @@
-OKX Chanlun Visualizer Plugin V1.0 First Generation
+OKX Chanlun Visualizer Plugin V1.1 Multi-Timeframe Research
 
 一、安装
 1. 解压收到的 ZIP 文件。
@@ -14,13 +14,16 @@ OKX Chanlun Visualizer Plugin V1.0 First Generation
 - 周期：主要分析 1D、4H、1H、30M、15M。
 - 顶底、结构、点位、裸K：控制图层显示；顶底默认关闭。
 - 多周期缠论分析：显示周期结构、WAIT/WATCH/PASS、候选区域与风险收益比。
+- 15/30M 区间套：验证 30M 候选与之后出现的 15M 确认是否同向、在结构区间内且未过期。
+- 本地新闻影响：在“设置”中每行录入一条新闻；未来事件可写成“2026-08-22 20:00 | FOMC 利率决议”。
+- 新闻文本只保存在本机，不自动联网抓取，不读取任何 OKX 账户数据。
 - 吸附模式下分析面板默认折叠，避免遮挡 OKX K 线和关键控件。
 
 三、重要边界
 - 只使用 OKX 官方公共行情，不读取、不保存、不请求 API Key。
 - 不会点击或操作 OKX 买卖按钮，不会提交真实盘或 OKX 模拟盘订单。
 - 所有“候选买/候选卖”和 LONG/SHORT 状态均为结构分析标签，不构成投资建议。
-- V1.0 不包含真实交易或模拟盘下单功能。
+- V1.1 不包含真实交易或 OKX 模拟盘下单功能；所有相关内容仅为本地研究或模拟记录。
 - 如果无法连接 OKX 原生 TradingView 图表 API，插件会暂停吸附绘图并提示，不绘制假匹配覆盖层。
 
 四、常见问题

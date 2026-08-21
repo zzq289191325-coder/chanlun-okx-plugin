@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 import type { Timeframe } from "../../contracts/src/index.js";
-import type { CandidateSignal, ChanlunSnapshot, Fractal } from "../src/chanlun/types.js";
+import type {
+  CandidateSignal,
+  ChanlunSnapshot,
+  Fractal,
+} from "../src/chanlun/types.js";
 import type { MultiTimeframeAnalysis } from "../src/multiTimeframe/engine.js";
 import { buildRiskPlan, type RiskPlan } from "../src/risk/riskEngine.js";
 import { generateSignalDocument } from "../src/signal/signalEngine.js";
 import { candlesFromValues } from "./fixtures.js";
 
-function fractal(type: "top" | "bottom", price: number, index: number): Fractal {
+function fractal(
+  type: "top" | "bottom",
+  price: number,
+  index: number,
+): Fractal {
   return {
     id: `f:${type}:${index}`,
     type,
@@ -31,8 +39,15 @@ const candidate: CandidateSignal = {
   reason: "fixture",
 };
 
-function snapshot(timeframe: Timeframe, target = 115, includeCandidate = true): ChanlunSnapshot {
-  const candles = candlesFromValues(Array.from({ length: 30 }, () => 100), timeframe);
+function snapshot(
+  timeframe: Timeframe,
+  target = 115,
+  includeCandidate = true,
+): ChanlunSnapshot {
+  const candles = candlesFromValues(
+    Array.from({ length: 30 }, () => 100),
+    timeframe,
+  );
   return {
     symbol: "TEST-USDT-SWAP",
     timeframe,
@@ -60,13 +75,26 @@ function multiTimeframe(execution: ChanlunSnapshot): MultiTimeframeAnalysis {
   } satisfies Record<Timeframe, ChanlunSnapshot>;
   return {
     symbol: "TEST-USDT-SWAP",
-    dataCutoff: Math.min(...Object.values(snapshots).map((item) => item.dataCutoff)),
+    dataCutoff: Math.min(
+      ...Object.values(snapshots).map((item) => item.dataCutoff),
+    ),
     snapshots,
     daily: "BULL",
     h4: "BULLISH_PULLBACK",
     h1: "LONG_WATCH_ZONE",
     m30: "CANDIDATE_2_BUY",
     m15: "CANDIDATE_2_BUY_CONFIRMED",
+    intervalNesting: {
+      state: "ALIGNED",
+      side: "long",
+      score: 30,
+      m30Candidate: { ...candidate, ageBars: 1 },
+      m15Candidate: { ...candidate, ageBars: 1 },
+      structureLow: 98,
+      structureHigh: 102,
+      reasons: ["fixture"],
+      waitingFor: [],
+    },
     preferredSide: "long",
     alignmentScore: 80,
     waitingFor: [],
@@ -134,10 +162,18 @@ describe("risk and signal engines", () => {
       trendStrength: 1,
       evidence: [],
     };
-    expect(generateSignalDocument({ multiTimeframe: mtf, regime, risk: passRisk }).signal).toBe("PASS");
+    expect(
+      generateSignalDocument({ multiTimeframe: mtf, regime, risk: passRisk })
+        .signal,
+    ).toBe("PASS");
     const valid = buildRiskPlan("long", execution, []);
     expect(
-      generateSignalDocument({ multiTimeframe: mtf, regime, risk: valid, highImpactEventSoon: true }).signal,
+      generateSignalDocument({
+        multiTimeframe: mtf,
+        regime,
+        risk: valid,
+        highImpactEventSoon: true,
+      }).signal,
     ).toBe("WAIT");
   });
 });

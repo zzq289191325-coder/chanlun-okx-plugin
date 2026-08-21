@@ -1,6 +1,6 @@
 # OKX Chanlun Visualizer Plugin
 
-**版本：V1.0 First Generation**
+**版本：V1.1 Multi-Timeframe Research**
 
 OKX Chanlun Visualizer Plugin 是一个 Chrome Manifest V3 扩展，用于在 OKX / 欧意合约行情页面上显示缠论结构与多周期行情研究信息。
 
@@ -14,6 +14,8 @@ OKX Chanlun Visualizer Plugin 是一个 Chrome Manifest V3 扩展，用于在 OK
 - 自动识别走势结构
 - 缠论分型、笔、线段和走势中枢可视化
 - 支持 1D、4H、1H、30M、15M 等多周期观察
+- 30M 候选结构与 15M 确认结构的区间套校验：同向、确认顺序、结构区间和时效性
+- 本地新闻文本影响研究：正向、负向、中性/混合与高影响事件等待提示
 - 显示候选买卖结构区域、WAIT/WATCH/PASS 和风险提示
 - 支持顶底、结构、候选点位和裸 K 图层开关
 - 支持 OKX 原生 TradingView 图表吸附；连接失败时暂停吸附绘图
@@ -27,6 +29,7 @@ OKX Chanlun Visualizer Plugin 是一个 Chrome Manifest V3 扩展，用于在 OK
 - 不提交真实盘或 OKX 模拟盘订单
 - 所有“候选买/候选卖”均为结构研究标签，不是确定性交易建议
 - 无法确认原生图表坐标时不会绘制假匹配覆盖层
+- 新闻文本只由用户手动录入并保存在本机，不新增第三方新闻接口或权限
 
 ## 技术栈
 
@@ -77,6 +80,8 @@ pnpm test
 pnpm build
 ```
 
+其中测试包含固定 OKX 公共历史行情样本的结构回归，以及 15M/30M 截止时间、未来数据扰动、未收盘 K 线和确认时间约束检查。测试运行不访问网络。
+
 构建完成后，Chrome 本地加载目录为：
 
 ```text
@@ -104,11 +109,11 @@ Chrome 权限用于本地设置、侧边栏、当前页面通信及注入 Tradin
 
 ## Roadmap
 
-### V1.1
+### V1.1（当前）
 
-- 增加 15 分钟 / 30 分钟级别买卖点辅助
-- 增加区间套分析
-- 增加新闻影响分析
+- 扩充更多品种与行情阶段的离线历史基准样本
+- 继续校准候选结构时效窗口和区间容差
+- 完善本地新闻事件录入与结构风险提示
 
 ### V1.2
 

@@ -9,6 +9,10 @@ import {
 import type { MultiTimeframeAnalysis } from "../multiTimeframe/engine.js";
 import type { MarketRegimeResult } from "../regime/marketRegime.js";
 import type { RiskPlan } from "../risk/riskEngine.js";
+import {
+  analyzeNewsImpact,
+  type NewsImpactResult,
+} from "../news/newsImpact.js";
 
 export interface SignalEngineInput {
   multiTimeframe: MultiTimeframeAnalysis;
@@ -17,6 +21,7 @@ export interface SignalEngineInput {
   generatedAt?: number;
   newsBias?: string;
   highImpactEventSoon?: boolean;
+  newsImpact?: NewsImpactResult;
 }
 
 function evidence(
@@ -31,45 +36,132 @@ function evidence(
 
 function decideState(input: SignalEngineInput, score: number): SignalState {
   const { multiTimeframe, regime, risk } = input;
-  if (input.highImpactEventSoon || regime.regime === "NEWS_EVENT" || regime.regime === "HIGH_VOLATILITY") return "WAIT";
+  if (
+    input.highImpactEventSoon ||
+    input.newsImpact?.highImpactEventSoon ||
+    regime.regime === "NEWS_EVENT" ||
+    regime.regime === "HIGH_VOLATILITY"
+  )
+    return "WAIT";
   if (risk.status === "PASS" && risk.reason.includes("2.0R")) return "PASS";
-  if (risk.status === "PASS" && risk.reason.includes("风险收益比")) return "PASS";
+  if (risk.status === "PASS" && risk.reason.includes("风险收益比"))
+    return "PASS";
   if (!multiTimeframe.preferredSide) return "WAIT";
-  if (risk.status !== "VALID" || multiTimeframe.waitingFor.length > 0 || score < 75) {
-    return multiTimeframe.preferredSide === "long" ? "WATCH_LONG" : "WATCH_SHORT";
+  if (
+    risk.status !== "VALID" ||
+    multiTimeframe.waitingFor.length > 0 ||
+    score < 75
+  ) {
+    return multiTimeframe.preferredSide === "long"
+      ? "WATCH_LONG"
+      : "WATCH_SHORT";
   }
   return multiTimeframe.preferredSide === "long" ? "LONG_READY" : "SHORT_READY";
 }
 
-export function generateSignalDocument(input: SignalEngineInput): SignalDocument {
+export function generateSignalDocument(
+  input: SignalEngineInput,
+): SignalDocument {
   const { multiTimeframe: mtf, regime, risk } = input;
   const generatedAt = input.generatedAt ?? Date.now();
   const reasons: SignalEvidence[] = [];
   const dailyScore = mtf.daily === "NEUTRAL" ? 0 : 20;
-  reasons.push(evidence("daily_direction", "1D", mtf.snapshots["1D"].dataCutoff, mtf.daily, dailyScore));
+  reasons.push(
+    evidence(
+      "daily_direction",
+      "1D",
+      mtf.snapshots["1D"].dataCutoff,
+      mtf.daily,
+      dailyScore,
+    ),
+  );
 
-  const h4Score = mtf.h4 === "BULLISH_PULLBACK" || mtf.h4 === "BEARISH_REBOUND" ? 15 : 0;
-  reasons.push(evidence("h4_phase", "4H", mtf.snapshots["4H"].dataCutoff, mtf.h4, h4Score));
+  const h4Score =
+    mtf.h4 === "BULLISH_PULLBACK" || mtf.h4 === "BEARISH_REBOUND" ? 15 : 0;
+  reasons.push(
+    evidence("h4_phase", "4H", mtf.snapshots["4H"].dataCutoff, mtf.h4, h4Score),
+  );
   const h1Score = mtf.h1 === "NO_OPPORTUNITY_ZONE" ? 0 : 15;
-  reasons.push(evidence("h1_opportunity_zone", "1H", mtf.snapshots["1H"].dataCutoff, mtf.h1, h1Score));
+  reasons.push(
+    evidence(
+      "h1_opportunity_zone",
+      "1H",
+      mtf.snapshots["1H"].dataCutoff,
+      mtf.h1,
+      h1Score,
+    ),
+  );
 
-  const m30Score = mtf.snapshots["30m"].signals.at(-1)?.side === mtf.preferredSide ? 15 : 0;
-  reasons.push(evidence("m30_structure", "30m", mtf.snapshots["30m"].dataCutoff, mtf.m30, m30Score));
-  const m15Score = mtf.snapshots["15m"].signals.at(-1)?.side === mtf.preferredSide ? 15 : 0;
-  reasons.push(evidence("m15_trigger", "15m", mtf.snapshots["15m"].dataCutoff, mtf.m15, m15Score));
+  const m30Score =
+    mtf.intervalNesting.m30Candidate?.side === mtf.preferredSide &&
+    mtf.intervalNesting.state !== "STALE"
+      ? 15
+      : 0;
+  reasons.push(
+    evidence(
+      "m30_structure",
+      "30m",
+      mtf.snapshots["30m"].dataCutoff,
+      mtf.m30,
+      m30Score,
+    ),
+  );
+  const m15Score =
+    mtf.intervalNesting.m15Candidate?.side === mtf.preferredSide &&
+    (mtf.intervalNesting.state === "ALIGNED" ||
+      mtf.intervalNesting.state === "PARTIAL")
+      ? 15
+      : 0;
+  reasons.push(
+    evidence(
+      "m15_trigger",
+      "15m",
+      mtf.snapshots["15m"].dataCutoff,
+      mtf.m15,
+      m15Score,
+    ),
+  );
 
   const rrScore = risk.status === "VALID" ? 10 : 0;
-  reasons.push(evidence("risk_reward", "15m", mtf.dataCutoff, risk.reason, rrScore));
-  const newsScore = input.highImpactEventSoon ? 0 : 2;
-  reasons.push(evidence("news_risk", "15m", mtf.dataCutoff, input.newsBias ?? "NEUTRAL", newsScore));
+  reasons.push(
+    evidence("risk_reward", "15m", mtf.dataCutoff, risk.reason, rrScore),
+  );
+  const newsImpact = input.newsImpact ?? analyzeNewsImpact([], generatedAt);
+  const highImpactEventSoon = Boolean(
+    input.highImpactEventSoon || newsImpact.highImpactEventSoon,
+  );
+  const newsScore = highImpactEventSoon ? 0 : 2;
+  reasons.push(
+    evidence(
+      "news_risk",
+      "15m",
+      mtf.dataCutoff,
+      input.newsBias ?? newsImpact.bias,
+      newsScore,
+    ),
+  );
   const volatilityScore = regime.regime === "HIGH_VOLATILITY" ? 0 : 5;
-  reasons.push(evidence("market_regime", "1H", mtf.dataCutoff, regime.regime, volatilityScore));
+  reasons.push(
+    evidence(
+      "market_regime",
+      "1H",
+      mtf.dataCutoff,
+      regime.regime,
+      volatilityScore,
+    ),
+  );
 
-  const score = Math.max(0, Math.min(100, reasons.reduce((sum, item) => sum + item.score, 0)));
+  const score = Math.max(
+    0,
+    Math.min(
+      100,
+      reasons.reduce((sum, item) => sum + item.score, 0),
+    ),
+  );
   const state = decideState(input, score);
   const waitingFor = [
     ...mtf.waitingFor,
-    ...(input.highImpactEventSoon ? ["等待重大事件公布及波动稳定"] : []),
+    ...(highImpactEventSoon ? ["等待重大事件公布及波动稳定"] : []),
     ...(risk.status === "PASS" ? [risk.reason] : []),
   ];
   const signalId = `signal:${mtf.symbol}:${mtf.dataCutoff}:${state}`;
@@ -95,7 +187,9 @@ export function generateSignalDocument(input: SignalEngineInput): SignalDocument
     tp2: risk.tp2,
     rr1: risk.rr1,
     rr2: risk.rr2,
-    newsBias: input.newsBias ?? "NEUTRAL",
+    newsBias: input.newsBias ?? newsImpact.bias,
+    intervalNesting: mtf.intervalNesting,
+    newsImpact,
     reasons,
     waitingFor,
     invalidation: risk.invalidation,

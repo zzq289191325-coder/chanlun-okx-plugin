@@ -1,4 +1,4 @@
-export const SIGNAL_SCHEMA_VERSION = 1 as const;
+export const SIGNAL_SCHEMA_VERSION = 2 as const;
 
 export type Timeframe = "1D" | "4H" | "1H" | "30m" | "15m";
 export type Direction = "up" | "down" | "range";
@@ -46,6 +46,45 @@ export interface SignalEvidence {
   score: number;
 }
 
+export interface IntervalCandidateDocument {
+  label: string;
+  side: TradeSide;
+  locationTime: number;
+  confirmedAt: number;
+  price: number;
+  score: number;
+  ageBars: number;
+}
+
+export interface IntervalNestingDocument {
+  state:
+    | "WAIT_30M_SETUP"
+    | "WAIT_15M_CONFIRMATION"
+    | "ALIGNED"
+    | "PARTIAL"
+    | "CONFLICT"
+    | "STALE";
+  side: TradeSide | null;
+  score: number;
+  m30Candidate: IntervalCandidateDocument | null;
+  m15Candidate: IntervalCandidateDocument | null;
+  structureLow: number | null;
+  structureHigh: number | null;
+  reasons: readonly string[];
+  waitingFor: readonly string[];
+}
+
+export interface NewsImpactDocument {
+  bias: "POSITIVE" | "NEGATIVE" | "NEUTRAL" | "MIXED";
+  riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  score: number;
+  highImpactEventSoon: boolean;
+  itemsAnalyzed: number;
+  matchedKeywords: readonly string[];
+  summary: string;
+  dataCutoff: number;
+}
+
 export interface SignalDocument {
   schemaVersion: typeof SIGNAL_SCHEMA_VERSION;
   signalId: string;
@@ -68,6 +107,8 @@ export interface SignalDocument {
   rr1: number | null;
   rr2: number | null;
   newsBias: string;
+  intervalNesting: IntervalNestingDocument;
+  newsImpact: NewsImpactDocument;
   reasons: readonly SignalEvidence[];
   waitingFor: readonly string[];
   invalidation: string;

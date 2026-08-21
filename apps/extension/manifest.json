@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "OKX Chanlun Visualizer Plugin",
-  "version": "1.0.0",
-  "description": "OKX 行情页面缠论结构可视化与多周期研究辅助，不执行交易。",
+  "version": "1.1.0",
+  "description": "OKX 缠论结构、15/30M 区间套与本地新闻影响研究，不执行交易。",
   "icons": {
     "16": "icons/icon-16.png",
     "48": "icons/icon-48.png",

@@ -5,6 +5,7 @@ import {
   INTELLIGENCE_TIMEFRAMES,
   type IntelligenceCandles,
   type IntelligenceResult,
+  type LocalNewsResearchInput,
 } from "./signalAdapter";
 
 export interface IntelligenceLoadResult {
@@ -17,19 +18,21 @@ export async function loadIntelligence(
   instId: string,
   currentInterval?: Interval,
   currentCandles?: Promise<Candle[]>,
+  localNews?: LocalNewsResearchInput,
 ): Promise<IntelligenceLoadResult> {
   const entries = await Promise.all(
     INTELLIGENCE_TIMEFRAMES.map(async (timeframe) => {
-      const candles = timeframe === currentInterval && currentCandles
-        ? await currentCandles
-        : await fetchOkxCandles(instId, timeframe, 300);
+      const candles =
+        timeframe === currentInterval && currentCandles
+          ? await currentCandles
+          : await fetchOkxCandles(instId, timeframe, 300);
       return [timeframe, candles] as const;
     }),
   );
   const candles = Object.fromEntries(entries) as IntelligenceCandles;
   return {
     candles,
-    analysis: buildIntelligenceResult(instId, candles),
+    analysis: buildIntelligenceResult(instId, candles, localNews),
     loadedAt: Date.now(),
   };
 }

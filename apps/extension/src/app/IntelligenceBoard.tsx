@@ -1,4 +1,11 @@
-import { BrainCircuit, Maximize2, Minimize2, ShieldAlert } from "lucide-react";
+import {
+  BrainCircuit,
+  GitCompareArrows,
+  Maximize2,
+  Minimize2,
+  Newspaper,
+  ShieldAlert,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import type { SignalDocument, SignalState } from "@intelligence/contracts";
 import { formatPrice } from "@/utils/format";
@@ -32,6 +39,22 @@ function rrOrDash(value: number | null) {
   return value === null ? "—" : `1 : ${value.toFixed(2)}`;
 }
 
+const NESTING_LABELS = {
+  WAIT_30M_SETUP: "等待30M候选",
+  WAIT_15M_CONFIRMATION: "等待15M确认",
+  ALIGNED: "15/30M 区间套一致",
+  PARTIAL: "同向但未进入区间",
+  CONFLICT: "15/30M 方向冲突",
+  STALE: "候选结构已过期",
+} as const;
+
+const NEWS_BIAS_LABELS = {
+  POSITIVE: "正向",
+  NEGATIVE: "负向",
+  NEUTRAL: "中性",
+  MIXED: "混合",
+} as const;
+
 export function IntelligenceBoard({ signal, defaultCollapsed = false }: IntelligenceBoardProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   useEffect(() => setCollapsed(defaultCollapsed), [defaultCollapsed]);
@@ -54,7 +77,10 @@ export function IntelligenceBoard({ signal, defaultCollapsed = false }: Intellig
         : "is-wait";
 
   return (
-    <section className={`cv-intelligence-board ${tone} ${collapsed ? "is-collapsed" : ""}`} aria-label="多周期缠论分析面板">
+    <section
+      className={`cv-intelligence-board ${tone} ${collapsed ? "is-collapsed" : ""}`}
+      aria-label="多周期缠论分析面板"
+    >
       <div className="cv-intelligence-head">
         <div>
           <BrainCircuit size={15} />
@@ -79,34 +105,93 @@ export function IntelligenceBoard({ signal, defaultCollapsed = false }: Intellig
         </button>
       </div>
 
-      {!collapsed && <><div className="cv-timeframe-strip" aria-label="Multi-Timeframe">
-        <span><b>1D</b>{signal.daily}</span>
-        <span><b>4H</b>{signal.h4}</span>
-        <span><b>1H</b>{signal.h1}</span>
-        <span><b>30M</b>{signal.m30}</span>
-        <span><b>15M</b>{signal.m15}</span>
-        <span><b>市场</b>{signal.marketRegime}</span>
-      </div>
+      {!collapsed && (
+        <>
+          <div className="cv-timeframe-strip" aria-label="Multi-Timeframe">
+            <span>
+              <b>1D</b>
+              {signal.daily}
+            </span>
+            <span>
+              <b>4H</b>
+              {signal.h4}
+            </span>
+            <span>
+              <b>1H</b>
+              {signal.h1}
+            </span>
+            <span>
+              <b>30M</b>
+              {signal.m30}
+            </span>
+            <span>
+              <b>15M</b>
+              {signal.m15}
+            </span>
+            <span>
+              <b>市场</b>
+              {signal.marketRegime}
+            </span>
+          </div>
 
-      <div className="cv-trade-plan">
-        <div><span>Entry</span><strong>{rangeOrDash(signal.entryMin, signal.entryMax)}</strong></div>
-        <div><span>Stop</span><strong>{valueOrDash(signal.stop)}</strong></div>
-        <div><span>TP1</span><strong>{valueOrDash(signal.tp1)}</strong><em>{rrOrDash(signal.rr1)}</em></div>
-        <div><span>TP2</span><strong>{valueOrDash(signal.tp2)}</strong><em>{rrOrDash(signal.rr2)}</em></div>
-      </div>
+          <div className="cv-trade-plan">
+            <div>
+              <span>Entry</span>
+              <strong>{rangeOrDash(signal.entryMin, signal.entryMax)}</strong>
+            </div>
+            <div>
+              <span>Stop</span>
+              <strong>{valueOrDash(signal.stop)}</strong>
+            </div>
+            <div>
+              <span>TP1</span>
+              <strong>{valueOrDash(signal.tp1)}</strong>
+              <em>{rrOrDash(signal.rr1)}</em>
+            </div>
+            <div>
+              <span>TP2</span>
+              <strong>{valueOrDash(signal.tp2)}</strong>
+              <em>{rrOrDash(signal.rr2)}</em>
+            </div>
+          </div>
 
-      <div className="cv-intelligence-waiting">
-        <ShieldAlert size={14} />
-        <div>
-          <strong>{signal.waitingFor.length > 0 ? "Waiting For" : "结构说明"}</strong>
-          <span>{signal.waitingFor.join("；") || signal.invalidation || "等待新的已确认结构。"}</span>
-        </div>
-      </div>
+          <div className="cv-research-strip">
+            <div>
+              <GitCompareArrows size={13} />
+              <span>15/30M 区间套</span>
+              <strong>{NESTING_LABELS[signal.intervalNesting.state]}</strong>
+              <em>
+                {signal.intervalNesting.m30Candidate?.label ?? "30M —"}
+                {" / "}
+                {signal.intervalNesting.m15Candidate?.label ?? "15M —"}
+              </em>
+            </div>
+            <div>
+              <Newspaper size={13} />
+              <span>本地新闻影响</span>
+              <strong>
+                {NEWS_BIAS_LABELS[signal.newsImpact.bias]} · {signal.newsImpact.riskLevel}
+              </strong>
+              <em>{signal.newsImpact.summary}</em>
+            </div>
+          </div>
 
-      <p className="cv-intelligence-disclaimer">
-        仅为确定性结构分析与风险提示，不构成投资建议；不读取 API Key，不连接或操作 OKX 下单。
-      </p>
-      </>}
+          <div className="cv-intelligence-waiting">
+            <ShieldAlert size={14} />
+            <div>
+              <strong>{signal.waitingFor.length > 0 ? "Waiting For" : "结构说明"}</strong>
+              <span>
+                {signal.waitingFor.join("；") || signal.invalidation || "等待新的已确认结构。"}
+              </span>
+            </div>
+          </div>
+
+          <p className="cv-intelligence-disclaimer">
+            仅为结构研究、新闻文本影响与风险提示，不构成投资建议；不读取 API Key，不连接或操作 OKX
+            下单。
+          </p>
+        </>
+      )}
     </section>
   );
 }

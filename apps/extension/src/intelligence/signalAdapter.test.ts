@@ -37,7 +37,9 @@ function candles(timeframe: Timeframe, count = 160): Candle[] {
 }
 
 function fixture(): IntelligenceCandles {
-  return Object.fromEntries(INTELLIGENCE_TIMEFRAMES.map((timeframe) => [timeframe, candles(timeframe)])) as IntelligenceCandles;
+  return Object.fromEntries(
+    INTELLIGENCE_TIMEFRAMES.map((timeframe) => [timeframe, candles(timeframe)]),
+  ) as IntelligenceCandles;
 }
 
 describe("extension intelligence adapter", () => {
@@ -60,5 +62,23 @@ describe("extension intelligence adapter", () => {
     expect(legacy.signals).toHaveLength(snapshot.signals.length);
     expect(snapshot.fractals.every((item) => item.confirmedAt <= snapshot.dataCutoff)).toBe(true);
     expect(snapshot.signals.every((item) => item.confirmedAt <= snapshot.dataCutoff)).toBe(true);
+  });
+
+  it("applies only locally supplied news text and keeps high-impact events research-only", () => {
+    const recordedAt = Date.now() - 1_000;
+    const eventAt = new Date(Date.now() + 2 * 60 * 60_000);
+    const date = [
+      eventAt.getFullYear(),
+      String(eventAt.getMonth() + 1).padStart(2, "0"),
+      String(eventAt.getDate()).padStart(2, "0"),
+    ].join("-");
+    const time = `${String(eventAt.getHours()).padStart(2, "0")}:${String(eventAt.getMinutes()).padStart(2, "0")}`;
+    const result = buildIntelligenceResult("BTC-USDT-SWAP", fixture(), {
+      text: `${date} ${time} | FOMC 利率决议`,
+      recordedAt,
+    });
+    expect(result.signal.newsImpact.highImpactEventSoon).toBe(true);
+    expect(result.signal.signal).toBe("WAIT");
+    expect(JSON.stringify(result.signal)).not.toMatch(/placeOrder|apiKey|secret|passphrase/i);
   });
 });
