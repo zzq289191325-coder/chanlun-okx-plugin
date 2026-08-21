@@ -83,6 +83,7 @@ pnpm research:test
 pnpm research:init
 pnpm research:sync
 pnpm research:audit
+pnpm research:backtest
 ```
 
 其中测试包含固定 OKX 公共历史行情样本的结构回归，以及 15M/30M 截止时间、未来数据扰动、未收盘 K 线和确认时间约束检查。测试运行不访问网络。
@@ -90,6 +91,14 @@ pnpm research:audit
 ## 本地历史行情数据库
 
 V1.1 使用独立 Python 研究服务和 SQLite 主库管理历史数据，不把大型行情放入 `chrome.storage`。默认数据库为 `data/chanlun_research.sqlite3`；数据库包含版本迁移、复合唯一键 UPSERT、断点游标、数据质量审计以及 SQLite 一致性备份。Chrome 插件仍只负责展示，不直接管理数据库。
+
+## V1.1 本地策略回测
+
+`pnpm research:backtest` 会对默认的 BTC、GOOGL、INTC、MU 永续合约逐一执行离线 paper trading。回放以 15M K 线逐根推进；每个时点只向策略提供已经收盘且不晚于 cutoff 的 1D、4H、1H、30M、15M 数据。分型、笔、线段、中枢和候选结构均须在各自 `confirmedAt` 后才可见，默认在确认后的下一根 15M K 线开盘价成交。
+
+默认研究配置位于 `apps/research-service/config/backtest_default.json`，可调整初始资金、仓位比例、手续费、滑点、资金费率估算、止盈止损同柱冲突规则、MA/ATR 参数、候选类型和可靠性阈值。系统不会调用真实盘或 OKX 模拟盘下单接口，也不会使用未来新闻或未来实际资金费率。
+
+每次回测会将参数、Git commit、算法版本、数据范围、数据摘要哈希、逐笔依据、确认时间、退出依据、数据截止时间和资金曲线写入本地 SQLite，并在 `data/reports/` 生成 Markdown 报告。报告同时检查样本量、最大回撤和参数敏感性；条件不满足时会明确标记为不可靠。
 
 详细设计和命令参见：`apps/research-service/DATABASE_DESIGN.md` 与 `apps/research-service/README.md`。
 

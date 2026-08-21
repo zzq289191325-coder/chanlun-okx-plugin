@@ -1,4 +1,5 @@
 export * from "../../contracts/src/index.js";
+export * from "./backtest/replay.js";
 export * from "./chanlun/divergence.js";
 export * from "./chanlun/engine.js";
 export * from "./chanlun/fractals.js";

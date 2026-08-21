@@ -51,7 +51,7 @@ class DatabaseTest(unittest.TestCase):
 
     def test_applies_ordered_migrations_and_creates_required_tables(self) -> None:
         versions = [row[0] for row in self.connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-        self.assertEqual(versions, [1, 2])
+        self.assertEqual(versions, [1, 2, 3])
         tables = {
             row[0]
             for row in self.connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")

@@ -12,7 +12,8 @@
     "research:test": "node apps/research-service/run-python.mjs -m unittest discover -s apps/research-service/tests -v",
     "research:init": "node apps/research-service/run-python.mjs apps/research-service/research.py init",
     "research:sync": "node apps/research-service/run-python.mjs apps/research-service/research.py sync --config apps/research-service/config/example_sync_tasks.json",
-    "research:audit": "node apps/research-service/run-python.mjs apps/research-service/research.py audit"
+    "research:audit": "node apps/research-service/run-python.mjs apps/research-service/research.py audit",
+    "research:backtest": "node apps/research-service/run-python.mjs apps/research-service/research.py backtest --config apps/research-service/config/backtest_default.json"
   },
   "devDependencies": {
     "@types/node": "24.13.3",

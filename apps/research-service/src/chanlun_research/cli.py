@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .audit import database_report
+from .backtest_config import BacktestConfig
+from .backtest_service import run_single_backtest
 from .database import (
     backup_database,
     connect_database,
@@ -57,6 +59,18 @@ def build_parser() -> argparse.ArgumentParser:
     restore = commands.add_parser("restore", help="Restore a database backup")
     restore.add_argument("--backup", type=Path, required=True)
     restore.add_argument("--force", action="store_true")
+
+    backtest = commands.add_parser("backtest", help="Run local-only point-in-time paper backtests")
+    backtest.add_argument(
+        "--config",
+        type=Path,
+        default=DEFAULT_CONFIG.parent / "backtest_default.json",
+    )
+    backtest.add_argument("--symbol", action="append")
+    backtest.add_argument("--start", type=int)
+    backtest.add_argument("--end", type=int)
+    backtest.add_argument("--name", default="V1.1 Chanlun local paper backtest")
+    backtest.add_argument("--no-sensitivity", action="store_true")
     return parser
 
 
@@ -132,6 +146,33 @@ def run(args: argparse.Namespace) -> int:
             target = backup_database(connection, destination)
             json_print({"database": str(database_path), "backup": str(target), "integrity": "ok"})
             return 0
+        if args.command == "backtest":
+            payload = json.loads(args.config.read_text(encoding="utf-8"))
+            config_values = dict(payload.get("strategy", {}))
+            if args.no_sensitivity:
+                config_values["sensitivity_percent"] = 0.0
+            config = BacktestConfig(**config_values)
+            symbols = [item.upper() for item in args.symbol] if args.symbol else [
+                str(item).upper() for item in payload["symbols"]
+            ]
+            outputs = []
+            errors = []
+            for symbol in symbols:
+                try:
+                    outputs.append(
+                        run_single_backtest(
+                            connection,
+                            symbol=symbol,
+                            config=config,
+                            name=args.name,
+                            data_start=args.start,
+                            data_end=args.end,
+                        ).to_dict()
+                    )
+                except Exception as error:
+                    errors.append({"symbol": symbol, "error": str(error)})
+            json_print({"database": str(database_path), "runs": outputs, "errors": errors})
+            return 1 if errors else 0
         raise RuntimeError(f"Unhandled command: {args.command}")
     finally:
         connection.close()

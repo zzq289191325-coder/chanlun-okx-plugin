@@ -1,0 +1,26 @@
+{
+  "symbols": [
+    "GOOGL-USDT-SWAP",
+    "INTC-USDT-SWAP",
+    "MU-USDT-SWAP",
+    "BTC-USDT-SWAP"
+  ],
+  "strategy": {
+    "initial_capital": 1000.0,
+    "position_fraction": 1.0,
+    "fee_rate": 0.0005,
+    "slippage_bps": 2.0,
+    "funding_rate_per_8h": 0.0001,
+    "intrabar_priority": "stop_first",
+    "minimum_risk_reward": 2.0,
+    "stop_atr_buffer": 0.15,
+    "entry_atr_width": 0.1,
+    "ma_period": 40,
+    "atr_period": 14,
+    "minimum_atr_percent": 0.15,
+    "minimum_execution_bars": 60,
+    "sensitivity_percent": 0.1,
+    "minimum_reliable_trades": 30,
+    "maximum_reliable_drawdown_percent": 20.0
+  }
+}

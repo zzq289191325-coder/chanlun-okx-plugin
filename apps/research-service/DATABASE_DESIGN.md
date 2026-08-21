@@ -17,6 +17,8 @@ V1.1 使用 SQLite 作为主数据库。Python 标准库直接支持 SQLite，�
 ## 迁移方案
 
 - `001_initial.sql`：创建标的、K线、导入批次、缠论分析、候选结构、回测、模拟成交、资金曲线、新闻和复盘表。
+- `002_sync_quality.sql`：增加增量同步游标和数据质量审计字段。
+- `003_backtest_reproducibility.sql`：增加回测数据摘要、结果签名、可靠性结论，以及逐笔 confirmedAt、data cutoff、成本和退出依据字段。
 - `002_sync_quality.sql`：创建可断点续传的同步任务和数据质量问题表。
 - `schema_migrations` 记录已执行版本和 SQL 摘要。启动时只按顺序执行未应用迁移；已应用迁移不会重跑，也不通过删除数据库升级。
 
