@@ -7,6 +7,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .audit import database_report
+from .adaptive_learning import (
+    PROFILES,
+    audit_learning,
+    predict_latest,
+    rollback_champion,
+    train_and_evaluate,
+    walk_forward,
+)
 from .backtest_config import BacktestConfig
 from .backtest_service import run_single_backtest
 from .database import (
@@ -17,8 +25,9 @@ from .database import (
     restore_database,
 )
 from .okx_public import OkxPublicHistoryClient
-from .paths import DEFAULT_BACKUP_DIR, DEFAULT_CONFIG, DEFAULT_DATABASE
+from .paths import DEFAULT_BACKUP_DIR, DEFAULT_CONFIG, DEFAULT_DATABASE, DEFAULT_MODEL_DIR
 from .repository import load_sync_tasks, seed_sync_tasks
+from .public_context import sync_public_context
 from .sync_service import sync_task
 
 
@@ -71,6 +80,33 @@ def build_parser() -> argparse.ArgumentParser:
     backtest.add_argument("--end", type=int)
     backtest.add_argument("--name", default="V1.1 Chanlun local paper backtest")
     backtest.add_argument("--no-sensitivity", action="store_true")
+
+    train = commands.add_parser("ml-train", help="Train a local point-in-time challenger model")
+    train.add_argument("--account", choices=tuple(PROFILES), required=True)
+    train.add_argument("--symbol", required=True)
+    train.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR)
+    train.add_argument("--auto-promote", action="store_true")
+
+    predict = commands.add_parser("ml-predict", help="Run a local model against the latest closed candle")
+    predict.add_argument("--model-version", required=True)
+
+    walk = commands.add_parser("ml-walk-forward", help="Run purged walk-forward validation")
+    walk.add_argument("--account", choices=tuple(PROFILES), required=True)
+    walk.add_argument("--symbol", required=True)
+    walk.add_argument("--folds", type=int, default=3)
+
+    toggle = commands.add_parser("ml-toggle", help="Start or pause the local learning scheduler")
+    toggle.add_argument("--account", choices=tuple(PROFILES), required=True)
+    toggle.add_argument("--enabled", choices=("true", "false"), required=True)
+
+    commands.add_parser("ml-audit", help="Audit learning lineage and safety boundaries")
+
+    rollback = commands.add_parser("ml-rollback", help="Roll back to an audited retired model")
+    rollback.add_argument("--account", choices=tuple(PROFILES), required=True)
+    rollback.add_argument("--target-model", required=True)
+
+    context = commands.add_parser("sync-public-context", help="Sync public funding and open-interest observations")
+    context.add_argument("--symbol", action="append", required=True)
     return parser
 
 
@@ -173,6 +209,47 @@ def run(args: argparse.Namespace) -> int:
                     errors.append({"symbol": symbol, "error": str(error)})
             json_print({"database": str(database_path), "runs": outputs, "errors": errors})
             return 1 if errors else 0
+        if args.command == "ml-train":
+            with connection:
+                output = train_and_evaluate(
+                    connection,
+                    account_id=args.account,
+                    symbol=args.symbol.upper(),
+                    model_dir=args.model_dir.resolve(),
+                    auto_promote=bool(args.auto_promote),
+                )
+            json_print({"database": str(database_path), **output})
+            return 0
+        if args.command == "ml-predict":
+            with connection:
+                output = predict_latest(connection, model_version_id=args.model_version)
+            json_print({"database": str(database_path), **output})
+            return 0
+        if args.command == "ml-walk-forward":
+            output = walk_forward(connection, account_id=args.account, symbol=args.symbol.upper(), folds=max(2, min(8, args.folds)))
+            json_print({"database": str(database_path), **output})
+            return 0
+        if args.command == "ml-toggle":
+            enabled = args.enabled == "true"
+            with connection:
+                connection.execute(
+                    "INSERT INTO ml_runtime_settings(account_id,enabled,updated_at) VALUES(?,?,?) ON CONFLICT(account_id) DO UPDATE SET enabled=excluded.enabled,updated_at=excluded.updated_at",
+                    (args.account, 1 if enabled else 0, int(datetime.now(tz=UTC).timestamp() * 1000)),
+                )
+            json_print({"database": str(database_path), "account_id": args.account, "enabled": enabled})
+            return 0
+        if args.command == "ml-audit":
+            json_print({"database": str(database_path), **audit_learning(connection)})
+            return 0
+        if args.command == "ml-rollback":
+            with connection:
+                output = rollback_champion(connection, account_id=args.account, target_model_id=args.target_model)
+            json_print({"database": str(database_path), **output})
+            return 0
+        if args.command == "sync-public-context":
+            output = sync_public_context(connection, OkxPublicHistoryClient(), [item.upper() for item in args.symbol])
+            json_print({"database": str(database_path), **output})
+            return 0
         raise RuntimeError(f"Unhandled command: {args.command}")
     finally:
         connection.close()

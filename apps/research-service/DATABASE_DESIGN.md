@@ -42,3 +42,17 @@ V1.1 使用 SQLite 作为主数据库。Python 标准库直接支持 SQLite，�
 - 无订单、持仓或 OKX 真实/模拟盘接口。
 - `simulated_trades` 只保存离线回测产生的虚拟成交。
 - 候选1/2/3买卖只是结构研究标签，不构成投资建议。
+# V9 自适应学习扩展
+
+V9 在原有 SQLite 主库上增量迁移，不删除或重建历史表：
+
+- `ml_feature_sets`：特征名称、版本与代码哈希。
+- `ml_training_runs`：账户、标的、训练区间、embargo、数据哈希、Git commit、参数与样本外指标。
+- `ml_model_versions`：本地模型文件、校验哈希及 challenger/champion/retired 状态；每个账户最多一个 Champion。
+- `ml_predictions` / `ml_prediction_outcomes`：预测概率、`feature_cutoff`、解释、质量状态和之后才能回填的结果。
+- `ml_promotion_runs`：逐项保存样本量、未来数据、F1、基线、Log Loss、回撤与交易次数门槛。
+- `ml_drift_reports` / `ml_data_quality_reports`：漂移、新鲜度、已收盘隔离和未来泄漏审计。
+- `paper_decision_events`：模型输出是否有资格进入本地 PAPER 风控预览；不代表已成交。
+- `public_funding_rates` / `public_open_interest_snapshots`：仅保存从 OKX 公共端点获取、带观察时间的数据。
+
+所有训练特征均满足 `source_time <= feature_cutoff`。新闻还必须同时满足 `published_at <= feature_cutoff` 和 `recorded_at <= feature_cutoff`；标签窗口与测试集之间使用 embargo 隔离。

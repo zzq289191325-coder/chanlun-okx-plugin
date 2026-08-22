@@ -1,0 +1,101 @@
+.market-chart svg {
+  overflow: visible;
+}
+
+.candle-wick {
+  stroke-width: 1.05;
+  vector-effect: non-scaling-stroke;
+}
+
+.candle-body {
+  stroke-width: .75;
+  vector-effect: non-scaling-stroke;
+}
+
+.candle.rising .candle-wick,
+.candle.rising .candle-body {
+  stroke: #43d9b7;
+}
+
+.candle.rising .candle-body {
+  fill: #103e34;
+}
+
+.candle.falling .candle-wick,
+.candle.falling .candle-body {
+  stroke: #e06d77;
+}
+
+.candle.falling .candle-body {
+  fill: #722d35;
+}
+
+.trade-marker {
+  cursor: help;
+  filter: drop-shadow(0 2px 4px #000a);
+}
+
+.trade-marker .marker-guide {
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.trade-marker .marker-price-tick {
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.trade-marker .marker-dot {
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.trade-marker .marker-letter {
+  fill: #f5fffc;
+  font: 700 12px Consolas, monospace;
+  pointer-events: none;
+}
+
+.trade-marker.buy .marker-guide { stroke: #41e1ba; }
+.trade-marker.buy .marker-price-tick { stroke: #69f0cf; }
+.trade-marker.buy .marker-dot { fill: #087f66; stroke: #69f0cf; }
+.trade-marker.sell .marker-guide { stroke: #ef7982; }
+.trade-marker.sell .marker-price-tick { stroke: #ff9aa1; }
+.trade-marker.sell .marker-dot { fill: #a53642; stroke: #ff9aa1; }
+
+.chart-legend {
+  position: absolute;
+  left: 22px;
+  top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 8px;
+  color: #66837c;
+  pointer-events: none;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.chart-legend b {
+  width: 17px;
+  height: 17px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #f5fffc;
+  font: 700 9px Consolas, monospace;
+}
+
+.chart-legend .buy b { background: #087f66; border: 1px solid #69f0cf; }
+.chart-legend .sell b { background: #a53642; border: 1px solid #ff9aa1; }
+.chart-legend .legend-note { color: #48665e; }
+
+@media (max-width: 1280px) {
+  .chart-legend .legend-note { display: none; }
+}

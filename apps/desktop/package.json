@@ -1,0 +1,52 @@
+{
+  "name": "chanlun-quant-trading-desktop",
+  "version": "1.1.0",
+  "description": "Local-first Chanlun quantitative research and PAPER trading desktop",
+  "author": "Chanlun OKX Plugin Contributors",
+  "private": true,
+  "type": "module",
+  "main": "dist-main/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "vite build && esbuild src/main/main.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-main/main.cjs && esbuild src/main/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-main/preload.cjs",
+    "package": "pnpm build && electron-builder --win dir"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.3",
+    "lucide-react": "^0.475.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "vite": "^8.1.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^41.0.2",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.27.4",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "wait-on": "^9.0.4"
+  },
+  "build": {
+    "appId": "local.chanlun.quant.desktop",
+    "productName": "Chanlun Quant Trading Desktop",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "dist-main/**/*", "package.json"],
+    "extraResources": [
+      { "from": "../../data/chanlun_research.sqlite3", "to": "data/chanlun_research.sqlite3" },
+      { "from": "../research-service/migrations", "to": "migrations" },
+      { "from": "../research-service", "to": "research-service", "filter": ["research.py", "run-python.mjs", "config/**", "src/**"] },
+      { "from": "使用说明.txt", "to": "使用说明.txt" }
+    ],
+    "asar": true,
+    "electronDist": "node_modules/electron/dist",
+    "win": { "target": ["dir"], "artifactName": "Chanlun-Quant-Desktop-${version}-${arch}.${ext}" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true }
+  }
+}

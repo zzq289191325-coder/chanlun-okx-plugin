@@ -14,6 +14,21 @@ pnpm research:test
 pnpm research:backtest
 ```
 
+## V1.1 自适应行情学习
+
+学习模块使用确定性的多分类 Softmax 回归作为可解释基线，不使用黑箱深度学习。特征只从 `feature_cutoff` 前已经收盘的 K 线、已经确认的候选结构、公开资金费率/持仓量观察，以及满足 `published_at <= cutoff AND recorded_at <= cutoff` 的本地新闻事件生成。
+
+```text
+node apps/research-service/run-python.mjs apps/research-service/research.py sync-public-context --symbol BTC-USDT-SWAP
+node apps/research-service/run-python.mjs apps/research-service/research.py ml-train --account paper-aggressive --symbol BTC-USDT-SWAP
+node apps/research-service/run-python.mjs apps/research-service/research.py ml-walk-forward --account paper-aggressive --symbol BTC-USDT-SWAP
+node apps/research-service/run-python.mjs apps/research-service/research.py ml-audit
+```
+
+训练按时间顺序切分并在训练/测试之间保留与标签跨度一致的 embargo。新模型默认是 `challenger`；即使所有门槛通过，命令未显式启用自动晋级时也不会替换 Champion。没有新鲜 Champion、数据漂移过大或输出为 HOLD 时，系统只保存阻断审计，不进入本地 PAPER 风控预览。
+
+模型文件默认保存在 `data/models/`；桌面安装版保存在应用用户目录的 `models/`。SQLite 保存模型哈希、特征版本、训练区间、数据摘要、Git commit、样本外指标、晋级门槛、预测解释与 PAPER 决策审计。模型文件不包含 API Key 或账户凭证。
+
 默认数据库：
 
 ```text

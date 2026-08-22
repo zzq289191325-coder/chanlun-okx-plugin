@@ -51,7 +51,7 @@ class DatabaseTest(unittest.TestCase):
 
     def test_applies_ordered_migrations_and_creates_required_tables(self) -> None:
         versions = [row[0] for row in self.connection.execute("SELECT version FROM schema_migrations ORDER BY version")]
-        self.assertEqual(versions, [1, 2, 3])
+        self.assertEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9])
         tables = {
             row[0]
             for row in self.connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -70,6 +70,13 @@ class DatabaseTest(unittest.TestCase):
                 "review_notes",
                 "sync_tasks",
                 "data_quality_issues",
+                "desktop_settings",
+                "research_watchlist",
+                "ml_feature_sets",
+                "ml_training_runs",
+                "ml_model_versions",
+                "ml_predictions",
+                "paper_decision_events",
             }.issubset(tables)
         )
         self.assertEqual(migrate_database(self.connection), [])

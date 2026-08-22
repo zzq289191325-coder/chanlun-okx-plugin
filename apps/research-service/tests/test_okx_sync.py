@@ -10,7 +10,12 @@ SERVICE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVICE_ROOT / "src"))
 
 from chanlun_research.database import connect_database, migrate_database
-from chanlun_research.okx_public import HISTORY_CANDLES_PATH, OkxPublicHistoryClient
+from chanlun_research.okx_public import (
+    FUNDING_RATE_HISTORY_PATH,
+    HISTORY_CANDLES_PATH,
+    OPEN_INTEREST_PATH,
+    OkxPublicHistoryClient,
+)
 from chanlun_research.repository import load_sync_tasks, seed_sync_tasks
 from chanlun_research.sync_service import sync_task
 
@@ -73,6 +78,22 @@ class OkxSyncTest(unittest.TestCase):
         self.assertNotIn("apiKey", requested[0])
         self.assertNotIn("trade", parsed.path)
         self.assertEqual(len(candles), 1)
+
+    def test_context_endpoints_are_public_allowlisted_and_have_no_credentials(self) -> None:
+        requested: list[str] = []
+
+        def transport(url: str) -> dict[str, object]:
+            requested.append(url)
+            return {"code": "0", "msg": "", "data": []}
+
+        client = OkxPublicHistoryClient(transport=transport)
+        client.get_funding_rate_history("BTC-USDT-SWAP")
+        client.get_open_interest("BTC-USDT-SWAP")
+        self.assertEqual(
+            [urllib.parse.urlparse(item).path for item in requested],
+            [FUNDING_RATE_HISTORY_PATH, OPEN_INTEREST_PATH],
+        )
+        self.assertTrue(all("apiKey" not in item and "/trade/" not in item for item in requested))
 
     def test_backfill_persists_cursor_and_resumes_without_duplicates(self) -> None:
         task = load_sync_tasks(self.connection)[0]

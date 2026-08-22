@@ -1,5 +1,17 @@
 # OKX Chanlun Visualizer Plugin
 
+## Chanlun Quant Trading Desktop
+
+`apps/desktop` 是独立 Windows 桌面研究端，复用现有 `packages/core`。默认且当前仅启用完全本地的 PAPER 模式，分为激进短线与基本面长线两个独立 1000U 账本；DEMO/LIVE 适配层保持只读和运行时锁定，当前构建不能向 OKX 发送、撤销或修改订单。
+
+桌面端双账本风控：激进短线使用 30M/15M 结构、单笔上限 120U、总敞口 300U、最低目标盈亏比 2:1，并在软件运行且数据可用时维持每小时至少一笔本地研究试错；基本面长线使用 1D/4H 与本地基本面上下文、单笔上限 250U、总敞口 500U、最低目标盈亏比 3:1，仅允许本地开多研究且不自动开仓。自动频率遇到断网、历史数据不足或风控阻断时会明确暂停，不会绕过风控制造成交。
+
+桌面端新增“自适应学习”模块：以点时可见特征训练两个相互独立的挑战者模型，提供做多/做空/观望概率、置信度、特征贡献、数据新鲜度、漂移状态、Walk-forward 验证和 Champion 晋级审计。任何新模型默认均为 Challenger；未通过样本外门槛时不会驱动本地 PAPER，更不会连接 OKX 账户。
+
+桌面端 V1.1 使用 Apple Glass 风格统一总览、多周期结构、候选机会、模拟账户、历史回测、策略实验室、自适应学习、深度复盘、数据管理与系统设置。默认浅色主题采用低饱和蓝紫强调色，右上角可切换并持久保存中性黑灰夜间主题；K 线保留 B/S 研究标记并使用蓝涨红跌配色。视觉升级不改变行情、策略、回测、数据库或风控逻辑。
+
+开发启动：`pnpm desktop:dev`。便携构建：`pnpm desktop:package`。
+
 **版本：V1.1 Multi-Timeframe Research**
 
 OKX Chanlun Visualizer Plugin 是一个 Chrome Manifest V3 扩展，用于在 OKX / 欧意合约行情页面上显示缠论结构与多周期行情研究信息。
@@ -125,7 +137,11 @@ apps/extension/dist
 - `https://www.okx.com/api/v5/market/candles`
 - OKX 公共行情 WebSocket
 
-本地研究服务只访问 `https://www.okx.com/api/v5/market/history-candles`，不发送认证信息。
+本地研究服务只访问以下明确列入白名单的 OKX 公共端点，不发送认证信息：
+
+- `https://www.okx.com/api/v5/market/history-candles`
+- `https://www.okx.com/api/v5/public/funding-rate-history`
+- `https://www.okx.com/api/v5/public/open-interest`
 
 Chrome 权限用于本地设置、侧边栏、当前页面通信及注入 TradingView 展示桥接，不包含账户交易权限。
 

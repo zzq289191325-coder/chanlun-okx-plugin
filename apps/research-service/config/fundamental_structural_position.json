@@ -1,0 +1,12 @@
+{
+  "strategyId": "fundamental-structural-position",
+  "version": "1.0.0-candidate",
+  "status": "CANDIDATE",
+  "maFastPeriod": 40,
+  "maSlowPeriod": 120,
+  "minimumFundamentalScore": 0.55,
+  "maximumCapitalPercent": 25,
+  "maximumHoldingDays": 180,
+  "earningsRiskWindowDays": 7,
+  "dataSource": "local-csv-json-only"
+}

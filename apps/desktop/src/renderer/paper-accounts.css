@@ -1,0 +1,119 @@
+.paper-account-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-block: 1px solid var(--line2);
+}
+
+.paper-account-switch button {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+  padding: 10px 16px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: #829b95;
+  text-align: left;
+  cursor: pointer;
+}
+
+.paper-account-switch button:last-child {
+  border-right: 0;
+}
+
+.paper-account-switch button.selected {
+  background: linear-gradient(90deg, #12352e, transparent);
+  box-shadow: inset 0 -2px var(--accent);
+  color: #e3f1ee;
+}
+
+.paper-account-switch span {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.paper-account-switch strong {
+  font: 600 14px Consolas, monospace;
+}
+
+.paper-account-switch small {
+  grid-column: 1 / -1;
+  color: #5e7a73;
+  font-size: 8px;
+}
+
+.paper-balance {
+  grid-template-columns: repeat(4, 1fr) auto;
+}
+
+.account-risk-band {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(460px, 1.4fr);
+  align-items: center;
+  gap: 20px;
+  padding: 10px 13px;
+  border-left: 2px solid #a06f39;
+  background: #0d1814;
+}
+
+.account-risk-band.fundamental {
+  border-left-color: #357b85;
+  background: #0a1719;
+}
+
+.account-risk-band span,
+.account-risk-band strong {
+  display: block;
+}
+
+.account-risk-band span {
+  color: #78948d;
+  font-size: 8px;
+}
+
+.account-risk-band strong {
+  margin-top: 5px;
+  color: #c8d9d5;
+  font-size: 9px;
+}
+
+.account-risk-band dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 0;
+}
+
+.account-risk-band dl > div {
+  padding-left: 11px;
+  border-left: 1px solid var(--line);
+}
+
+.account-risk-band dt {
+  color: #5f7c74;
+  font-size: 8px;
+}
+
+.account-risk-band dd {
+  margin: 4px 0 0;
+  color: #b9ceca;
+  font: 500 9px Consolas, monospace;
+}
+
+@media (max-width: 1280px) {
+  .account-risk-band {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+@media (max-height: 760px) {
+  .paper-account-switch button {
+    min-height: 48px;
+    padding-block: 7px;
+  }
+
+  .account-risk-band {
+    padding-block: 7px;
+  }
+}

@@ -115,6 +115,26 @@ def run_single_backtest(
         for item in base_bridge["opportunities"]
         if effective_start <= int(item["dataCutoff"]) <= effective_end
     ]
+    base_decisions = [
+        item
+        for item in base_bridge.get("decisions", [])
+        if effective_start <= int(item["dataCutoff"]) <= effective_end
+    ]
+    base_nesting_checks = [
+        item
+        for item in base_bridge.get("intervalNestingChecks", [])
+        if effective_start <= int(item["dataCutoff"]) <= effective_end
+    ]
+    base_observed_candidates = [
+        item
+        for item in base_bridge.get("observedCandidates", [])
+        if effective_start <= int(item["firstVisibleCutoff"]) <= effective_end
+    ]
+    base_rejection_counts: dict[str, int] = {}
+    for item in base_decisions:
+        stage = item.get("rejectionStage")
+        if stage:
+            base_rejection_counts[str(stage)] = base_rejection_counts.get(str(stage), 0) + 1
     simulation_candles = [
         item
         for item in m15
@@ -168,6 +188,17 @@ def run_single_backtest(
             "sensitivity": sensitivity,
         }
     )
+    data_snapshots = []
+    for timeframe, candles in bundle.items():
+        data_snapshots.append(
+            {
+                "timeframe": timeframe,
+                "firstOpenTime": int(candles[0]["openTime"]) if candles else None,
+                "lastCloseTime": int(candles[-1]["closeTime"]) if candles else None,
+                "closedCandleCount": len(candles),
+                "dataHash": _signature(candles),
+            }
+        )
     with connection:
         run_id = create_backtest_run(
             connection,
@@ -189,6 +220,11 @@ def run_single_backtest(
                 algorithm_version=algorithm_version,
                 config=config,
                 opportunities=base_opportunities,
+                decisions=base_decisions,
+                observed_candidates=base_observed_candidates,
+                interval_nesting_checks=base_nesting_checks,
+                rejection_counts=base_rejection_counts,
+                data_snapshots=data_snapshots,
                 result=result,
                 metrics=metrics,
                 warnings=warnings,

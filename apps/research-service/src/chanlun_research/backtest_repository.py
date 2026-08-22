@@ -63,6 +63,11 @@ def persist_backtest_result(
     algorithm_version: str,
     config: BacktestConfig,
     opportunities: list[dict[str, Any]],
+    decisions: list[dict[str, Any]],
+    observed_candidates: list[dict[str, Any]],
+    interval_nesting_checks: list[dict[str, Any]],
+    rejection_counts: dict[str, int],
+    data_snapshots: list[dict[str, Any]],
     result: SimulationResult,
     metrics: dict[str, Any],
     warnings: list[str],
@@ -80,7 +85,10 @@ def persist_backtest_result(
         (
             analysis_run_id,
             symbol,
-            max((int(item["dataCutoff"]) for item in opportunities), default=0),
+            max(
+                (int(item["dataCutoff"]) for item in decisions),
+                default=max((int(item["dataCutoff"]) for item in opportunities), default=0),
+            ),
             algorithm_version,
             json.dumps(config.strategy_config(), sort_keys=True, separators=(",", ":")),
             now,
@@ -89,6 +97,103 @@ def persist_backtest_result(
         ),
     )
     signal_ids: dict[str, str] = {}
+
+    for item in decisions:
+        decision_id = hashlib.sha256(
+            f"{run_id}:decision:{item['symbol']}:{item['dataCutoff']}".encode("utf-8")
+        ).hexdigest()
+        visible = item.get("visibleCutoffs", {})
+        connection.execute(
+            """
+            INSERT INTO bar_decisions(
+                decision_id, analysis_run_id, backtest_run_id, symbol,
+                execution_timeframe, candle_open_time, candle_close_time, data_cutoff,
+                visible_1d_cutoff, visible_4h_cutoff, visible_1h_cutoff,
+                visible_30m_cutoff, visible_15m_cutoff, daily_state, h4_state,
+                h1_state, interval_nesting_state, market_regime, preferred_side,
+                signal_state, score, rejection_stage, rejection_reason, algorithm_version
+            ) VALUES (?, ?, ?, ?, '15m', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                decision_id, analysis_run_id, run_id, symbol,
+                item["candleOpenTime"], item["candleCloseTime"], item["dataCutoff"],
+                visible.get("1D"), visible.get("4H"), visible.get("1H"),
+                visible.get("30m"), visible.get("15m"), item["dailyState"],
+                item["h4State"], item["h1State"], item["intervalNestingState"],
+                item["marketRegime"], item.get("preferredSide"), item["signalState"],
+                item["score"], item.get("rejectionStage"), item.get("rejectionReason"),
+                algorithm_version,
+            ),
+        )
+
+    for item in observed_candidates:
+        observed_id = hashlib.sha256(
+            f"{run_id}:{item['timeframe']}:{item['sourceCandidateId']}".encode("utf-8")
+        ).hexdigest()
+        connection.execute(
+            """
+            INSERT INTO observed_candidates(
+                observed_candidate_id, analysis_run_id, backtest_run_id, symbol,
+                timeframe, source_candidate_id, candidate_kind, candidate_label,
+                side, location_time, confirmed_at, first_visible_cutoff, price,
+                score, accepted, rejection_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                observed_id, analysis_run_id, run_id, symbol, item["timeframe"],
+                item["sourceCandidateId"], item["candidateKind"], item["candidateLabel"],
+                item["side"], item["locationTime"], item["confirmedAt"],
+                item["firstVisibleCutoff"], item["price"], item["score"],
+                int(bool(item["accepted"])), item.get("rejectionReason"),
+            ),
+        )
+
+    for item in interval_nesting_checks:
+        nesting_id = hashlib.sha256(
+            f"{run_id}:nesting:{item['dataCutoff']}".encode("utf-8")
+        ).hexdigest()
+        connection.execute(
+            """
+            INSERT INTO interval_nesting_checks(
+                nesting_check_id, analysis_run_id, backtest_run_id, symbol,
+                data_cutoff, state, side, m30_candidate_id, m15_candidate_id,
+                m30_confirmed_at, m15_confirmed_at, structure_low, structure_high,
+                m15_price, same_direction, confirmation_order_valid, inside_structure,
+                reason_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                nesting_id, analysis_run_id, run_id, symbol, item["dataCutoff"],
+                item["state"], item.get("side"), item.get("m30CandidateId"),
+                item.get("m15CandidateId"), item.get("m30ConfirmedAt"),
+                item.get("m15ConfirmedAt"), item.get("structureLow"),
+                item.get("structureHigh"), item.get("m15Price"),
+                None if item.get("sameDirection") is None else int(bool(item["sameDirection"])),
+                None if item.get("confirmationOrderValid") is None else int(bool(item["confirmationOrderValid"])),
+                None if item.get("insideStructure") is None else int(bool(item["insideStructure"])),
+                json.dumps(item.get("reasons", []), ensure_ascii=False, separators=(",", ":")),
+            ),
+        )
+
+    connection.executemany(
+        "INSERT INTO strategy_rejection_counts(backtest_run_id, rejection_stage, rejected_count) VALUES (?, ?, ?)",
+        [(run_id, stage, count) for stage, count in sorted(rejection_counts.items())],
+    )
+    connection.executemany(
+        """
+        INSERT INTO run_data_snapshots(
+            backtest_run_id, symbol, timeframe, first_open_time, last_close_time,
+            closed_candle_count, data_hash
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                run_id, symbol, item["timeframe"], item.get("firstOpenTime"),
+                item.get("lastCloseTime"), item["closedCandleCount"], item["dataHash"],
+            )
+            for item in data_snapshots
+        ],
+    )
     for opportunity in opportunities:
         opportunity_id = str(opportunity["opportunityId"])
         signal_id = hashlib.sha256(f"{run_id}:{opportunity_id}".encode("utf-8")).hexdigest()

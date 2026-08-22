@@ -1,0 +1,12 @@
+{
+  "strategyId": "aggressive-interval-nesting",
+  "version": "1.0.0-candidate",
+  "status": "PAPER",
+  "executionTimeframe": "15m",
+  "maPeriod": 40,
+  "atrPeriod": 14,
+  "minimumAtrPercent": 0.15,
+  "minimumRiskReward": 2.0,
+  "maximumConsecutiveAttempts": 3,
+  "initialCapital": 1000
+}

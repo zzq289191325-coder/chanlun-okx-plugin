@@ -74,6 +74,10 @@ export interface ResearchReplayResult {
   algorithmVersion: typeof CHANLUN_ALGORITHM_VERSION;
   strategyVersion: typeof RESEARCH_STRATEGY_VERSION;
   opportunities: readonly ResearchOpportunity[];
+  decisions: readonly BarDecisionAudit[];
+  observedCandidates: readonly ObservedCandidateAudit[];
+  intervalNestingChecks: readonly IntervalNestingAudit[];
+  rejectionCounts: Readonly<Record<string, number>>;
   diagnostics: {
     executionBars: number;
     evaluatedBars: number;
@@ -82,6 +86,58 @@ export interface ResearchReplayResult {
     rejectedByAtr: number;
     rejectedByCandidateKind: number;
   };
+}
+
+export interface BarDecisionAudit {
+  symbol: string;
+  candleOpenTime: number;
+  candleCloseTime: number;
+  dataCutoff: number;
+  visibleCutoffs: Readonly<Record<Timeframe, number | null>>;
+  dailyState: string;
+  h4State: string;
+  h1State: string;
+  intervalNestingState: string;
+  marketRegime: MarketRegime;
+  preferredSide: TradeSide | null;
+  signalState: string;
+  score: number;
+  rejectionStage: string | null;
+  rejectionReason: string | null;
+}
+
+export interface ObservedCandidateAudit {
+  sourceCandidateId: string;
+  symbol: string;
+  timeframe: "30m" | "15m";
+  candidateKind: CandidateKind;
+  candidateLabel: string;
+  side: TradeSide;
+  locationTime: number;
+  confirmedAt: number;
+  firstVisibleCutoff: number;
+  price: number;
+  score: number;
+  accepted: boolean;
+  rejectionReason: string | null;
+}
+
+export interface IntervalNestingAudit {
+  symbol: string;
+  dataCutoff: number;
+  state: string;
+  side: TradeSide | null;
+  m30CandidateId: string | null;
+  m15CandidateId: string | null;
+  m30ConfirmedAt: number | null;
+  m15ConfirmedAt: number | null;
+  structureLow: number | null;
+  structureHigh: number | null;
+  m15Price: number | null;
+  sameDirection: boolean | null;
+  confirmationOrderValid: boolean | null;
+  insideStructure: boolean | null;
+  reasons: readonly string[];
 }
 
 function average(values: readonly number[]): number | null {
@@ -155,6 +211,11 @@ export function replayResearchOpportunities(
   const execution = closedPrefix(input["15m"], Number.POSITIVE_INFINITY);
   const seen = new Set<string>();
   const opportunities: ResearchOpportunity[] = [];
+  const decisions: BarDecisionAudit[] = [];
+  const candidateMap = new Map<string, ObservedCandidateAudit>();
+  const acceptedCandidateIds = new Set<string>();
+  const intervalNestingChecks: IntervalNestingAudit[] = [];
+  const rejectionCounts: Record<string, number> = {};
   let evaluatedBars = 0;
   let readySignals = 0;
   let rejectedByMa = 0;
@@ -172,14 +233,79 @@ export function replayResearchOpportunities(
     evaluatedBars += 1;
     const multiTimeframe = analyzeMultiTimeframe(prefix);
     const side = multiTimeframe.preferredSide;
-    if (!side || multiTimeframe.intervalNesting.state !== "ALIGNED") continue;
+    const regime = detectMarketRegime(prefix["1H"]);
+    const nesting = multiTimeframe.intervalNesting;
+    for (const [timeframe, snapshot] of [["30m", multiTimeframe.snapshots["30m"]], ["15m", multiTimeframe.snapshots["15m"]]] as const) {
+      for (const candidate of snapshot.signals.filter((item) => item.confirmedAt <= cutoff)) {
+        const key = `${timeframe}:${candidate.id}`;
+        if (!candidateMap.has(key)) candidateMap.set(key, {
+          sourceCandidateId: candidate.id,
+          symbol: executionCandle.symbol,
+          timeframe,
+          candidateKind: candidate.kind,
+          candidateLabel: candidate.label,
+          side: candidate.side,
+          locationTime: candidate.locationTime,
+          confirmedAt: candidate.confirmedAt,
+          firstVisibleCutoff: cutoff,
+          price: candidate.price,
+          score: candidate.score,
+          accepted: false,
+          rejectionReason: null,
+        });
+      }
+    }
+    const m30Source = nesting.m30Candidate
+      ? multiTimeframe.snapshots["30m"].signals.find((item) => item.locationTime === nesting.m30Candidate?.locationTime && item.confirmedAt === nesting.m30Candidate.confirmedAt)
+      : null;
+    const m15Source = nesting.m15Candidate
+      ? multiTimeframe.snapshots["15m"].signals.find((item) => item.locationTime === nesting.m15Candidate?.locationTime && item.confirmedAt === nesting.m15Candidate.confirmedAt)
+      : null;
+    intervalNestingChecks.push({
+      symbol: executionCandle.symbol,
+      dataCutoff: cutoff,
+      state: nesting.state,
+      side: nesting.side,
+      m30CandidateId: m30Source?.id ?? null,
+      m15CandidateId: m15Source?.id ?? null,
+      m30ConfirmedAt: nesting.m30Candidate?.confirmedAt ?? null,
+      m15ConfirmedAt: nesting.m15Candidate?.confirmedAt ?? null,
+      structureLow: nesting.structureLow,
+      structureHigh: nesting.structureHigh,
+      m15Price: nesting.m15Candidate?.price ?? null,
+      sameDirection: nesting.m30Candidate && nesting.m15Candidate ? nesting.m30Candidate.side === nesting.m15Candidate.side : null,
+      confirmationOrderValid: nesting.m30Candidate && nesting.m15Candidate ? nesting.m15Candidate.confirmedAt >= nesting.m30Candidate.confirmedAt : null,
+      insideStructure: nesting.m15Candidate && nesting.structureLow !== null && nesting.structureHigh !== null ? nesting.m15Candidate.price >= nesting.structureLow && nesting.m15Candidate.price <= nesting.structureHigh : null,
+      reasons: nesting.reasons,
+    });
+    const recordDecision = (stage: string | null, reason: string | null, signalState = "WAIT", score = multiTimeframe.alignmentScore): void => {
+      if (stage) rejectionCounts[stage] = (rejectionCounts[stage] ?? 0) + 1;
+      decisions.push({
+        symbol: executionCandle.symbol,
+        candleOpenTime: executionCandle.openTime,
+        candleCloseTime: executionCandle.closeTime,
+        dataCutoff: cutoff,
+        visibleCutoffs: Object.fromEntries(TIMEFRAMES.map((timeframe) => [timeframe, prefix[timeframe].at(-1)?.closeTime ?? null])) as Readonly<Record<Timeframe, number | null>>,
+        dailyState: multiTimeframe.daily,
+        h4State: multiTimeframe.h4,
+        h1State: multiTimeframe.h1,
+        intervalNestingState: nesting.state,
+        marketRegime: regime.regime,
+        preferredSide: side,
+        signalState,
+        score,
+        rejectionStage: stage,
+        rejectionReason: reason,
+      });
+    };
+    if (!side) { recordDecision("daily_direction", "1D structure has no directional preference"); continue; }
+    if (nesting.state !== "ALIGNED") { recordDecision("interval_nesting", `30M/15M nesting state is ${nesting.state}`); continue; }
     const risk = buildRiskPlan(side, multiTimeframe.snapshots["15m"], [
       multiTimeframe.snapshots["30m"],
       multiTimeframe.snapshots["1H"],
       multiTimeframe.snapshots["4H"],
       multiTimeframe.snapshots["1D"],
     ], config);
-    const regime = detectMarketRegime(prefix["1H"]);
     const document = generateSignalDocument({
       multiTimeframe,
       regime,
@@ -187,19 +313,22 @@ export function replayResearchOpportunities(
       generatedAt: cutoff,
     });
     const ready = document.signal === "LONG_READY" || document.signal === "SHORT_READY";
-    if (!ready || risk.status !== "VALID" || !risk.candidate) continue;
+    if (!ready || risk.status !== "VALID" || !risk.candidate) { recordDecision("signal_readiness", risk.status, document.signal, document.score); continue; }
     readySignals += 1;
     if (!config.allowedCandidateKinds.includes(risk.candidate.kind)) {
       rejectedByCandidateKind += 1;
+      recordDecision("candidate_kind", `${risk.candidate.kind} is disabled`, document.signal, document.score);
       continue;
     }
     const filters = evaluateExecutionFilters(prefix["15m"], side, config);
     if (!filters.maAligned) {
       rejectedByMa += 1;
+      recordDecision("ma_filter", `MA${config.maPeriod} direction filter failed`, document.signal, document.score);
       continue;
     }
     if (!filters.atrAligned) {
       rejectedByAtr += 1;
+      recordDecision("atr_filter", `ATR${config.atrPeriod} volatility filter failed`, document.signal, document.score);
       continue;
     }
     const m30Candidate = multiTimeframe.intervalNesting.m30Candidate;
@@ -216,12 +345,15 @@ export function replayResearchOpportunities(
       || filters.movingAverage === null
       || filters.atr === null
       || filters.atrPercent === null
-    ) continue;
+    ) { recordDecision("risk_plan", "Risk plan or interval candidate is incomplete", document.signal, document.score); continue; }
     const confirmation = Math.max(m30Candidate.confirmedAt, m15Candidate.confirmedAt, risk.candidate.confirmedAt);
-    if (confirmation > cutoff) continue;
+    if (confirmation > cutoff) { recordDecision("future_confirmation", "Candidate confirmation is later than the visible cutoff", document.signal, document.score); continue; }
     const opportunityId = `${executionCandle.symbol}:${m30Candidate.label}:${m30Candidate.confirmedAt}:${m15Candidate.label}:${m15Candidate.confirmedAt}`;
-    if (seen.has(opportunityId)) continue;
+    if (seen.has(opportunityId)) { recordDecision("duplicate_opportunity", opportunityId, document.signal, document.score); continue; }
     seen.add(opportunityId);
+    acceptedCandidateIds.add(`15m:${risk.candidate.id}`);
+    if (m30Source) acceptedCandidateIds.add(`30m:${m30Source.id}`);
+    recordDecision(null, null, document.signal, document.score);
     opportunities.push({
       opportunityId,
       symbol: executionCandle.symbol,
@@ -257,6 +389,14 @@ export function replayResearchOpportunities(
     algorithmVersion: CHANLUN_ALGORITHM_VERSION,
     strategyVersion: RESEARCH_STRATEGY_VERSION,
     opportunities,
+    decisions,
+    observedCandidates: [...candidateMap.entries()].map(([key, candidate]) => ({
+      ...candidate,
+      accepted: acceptedCandidateIds.has(key),
+      rejectionReason: acceptedCandidateIds.has(key) ? null : "Not selected by a complete accepted opportunity",
+    })),
+    intervalNestingChecks,
+    rejectionCounts,
     diagnostics: {
       executionBars: execution.length,
       evaluatedBars,

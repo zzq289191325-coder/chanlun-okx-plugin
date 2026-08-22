@@ -1,0 +1,14 @@
+@media (max-height: 760px) {
+  main { padding-top: 15px; padding-bottom: 12px; }
+  .pagebar { padding-bottom: 11px; margin-bottom: 11px; }
+  .pagebar h1 { font-size: 22px; }
+  .metrics { margin-bottom: 12px; }
+  .metrics article { padding-top: 10px; padding-bottom: 10px; }
+  .metrics strong { font-size: 19px; margin-block: 5px; }
+  .market-chart { height: 255px; }
+  .safety-mark { height: 78px; margin: 11px 0; }
+  .key-values div { padding: 6px 0; }
+  .timeframe-strip button { padding-block: 7px; }
+  .inspector > .primary-action,
+  .inspector > .secondary-action { min-height: 34px; }
+}
